@@ -1,0 +1,19 @@
+.DS_Store
+.idea
+*.log
+tmp/
+
+# Docker volumes
+volumes/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+
+# Logs
+*.log
