@@ -1,53 +1,89 @@
 version: '3.8'
 
 services:
-  gitlab-runner-1:
-    image: gitlab/gitlab-runner:alpine
-    container_name: gitlab-runner-1
+  # Init container to register runner 1
+  gitlab-runner-1-init:
+    image: alpine:latest
+    container_name: gitlab-runner-1-init
     environment:
       - CI_SERVER_URL=${CI_SERVER_URL}
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
-      - RUNNER_TAG_LIST=${RUNNER_1_TAGS}
-      - RUNNER_NAME=${RUNNER_1_NAME}
+      - RUNNER_TAG_LIST=${RUNNER_1_TAGS:-runner-1,docker}
+      - RUNNER_NAME=${RUNNER_1_NAME:-GitLab Runner 1}
+    volumes:
+      - ./register-runner.sh:/register.sh:ro
+      - runner-1-config:/etc/gitlab-runner
+    command: ["/bin/sh", "/register.sh"]
+    networks:
+      - gitlab-runner-network
+
+  gitlab-runner-1:
+    image: gitlab/gitlab-runner:alpine
+    container_name: gitlab-runner-1
+    depends_on:
+      gitlab-runner-1-init:
+        condition: service_completed_successfully
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./register-runner.sh:/register-runner.sh:ro
       - runner-1-config:/etc/gitlab-runner
-    entrypoint: ["/bin/sh", "/register-runner.sh"]
     restart: unless-stopped
+    networks:
+      - gitlab-runner-network
+
+  # Init container to register runner 2
+  gitlab-runner-2-init:
+    image: alpine:latest
+    container_name: gitlab-runner-2-init
+    environment:
+      - CI_SERVER_URL=${CI_SERVER_URL}
+      - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
+      - RUNNER_TAG_LIST=${RUNNER_2_TAGS:-runner-2,docker}
+      - RUNNER_NAME=${RUNNER_2_NAME:-GitLab Runner 2}
+    volumes:
+      - ./register-runner.sh:/register.sh:ro
+      - runner-2-config:/etc/gitlab-runner
+    command: ["/bin/sh", "/register.sh"]
     networks:
       - gitlab-runner-network
 
   gitlab-runner-2:
     image: gitlab/gitlab-runner:alpine
     container_name: gitlab-runner-2
+    depends_on:
+      gitlab-runner-2-init:
+        condition: service_completed_successfully
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - runner-2-config:/etc/gitlab-runner
+    restart: unless-stopped
+    networks:
+      - gitlab-runner-network
+
+  # Init container to register runner 3
+  gitlab-runner-3-init:
+    image: alpine:latest
+    container_name: gitlab-runner-3-init
     environment:
       - CI_SERVER_URL=${CI_SERVER_URL}
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
-      - RUNNER_TAG_LIST=${RUNNER_2_TAGS}
-      - RUNNER_NAME=${RUNNER_2_NAME}
+      - RUNNER_TAG_LIST=${RUNNER_3_TAGS:-runner-3,docker}
+      - RUNNER_NAME=${RUNNER_3_NAME:-GitLab Runner 3}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./register-runner.sh:/register-runner.sh:ro
-      - runner-2-config:/etc/gitlab-runner
-    entrypoint: ["/bin/sh", "/register-runner.sh"]
-    restart: unless-stopped
+      - ./register-runner.sh:/register.sh:ro
+      - runner-3-config:/etc/gitlab-runner
+    command: ["/bin/sh", "/register.sh"]
     networks:
       - gitlab-runner-network
 
   gitlab-runner-3:
     image: gitlab/gitlab-runner:alpine
     container_name: gitlab-runner-3
-    environment:
-      - CI_SERVER_URL=${CI_SERVER_URL}
-      - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
-      - RUNNER_TAG_LIST=${RUNNER_3_TAGS}
-      - RUNNER_NAME=${RUNNER_3_NAME}
+    depends_on:
+      gitlab-runner-3-init:
+        condition: service_completed_successfully
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./register-runner.sh:/register-runner.sh:ro
       - runner-3-config:/etc/gitlab-runner
-    entrypoint: ["/bin/sh", "/register-runner.sh"]
     restart: unless-stopped
     networks:
       - gitlab-runner-network
