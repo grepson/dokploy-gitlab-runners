@@ -29,7 +29,7 @@ chmod +x /usr/local/bin/gitlab-runner
 
 echo "Registering GitLab Runner..."
 
-# Register the runner non-interactively
+# Register the runner non-interactively with optimized settings
 gitlab-runner register \
     --non-interactive \
     --url "${CI_SERVER_URL}" \
@@ -42,7 +42,20 @@ gitlab-runner register \
     --locked="false" \
     --access-level="not_protected" \
     --docker-privileged="false" \
-    --docker-volumes "/var/run/docker.sock:/var/run/docker.sock"
+    --docker-volumes "/var/run/docker.sock:/var/run/docker.sock" \
+    --docker-volumes "/cache" \
+    --request-concurrency="4" \
+    --limit="${RUNNER_LIMIT:-10}" \
+    --docker-pull-policy="if-not-present" \
+    --docker-shm-size="268435456"
+
+# Post-registration optimization: Add performance tweaks to config.toml
+sed -i '/\[runners.docker\]/a\    pull_policy = ["if-not-present"]\n    shm_size = 268435456\n    disable_cache = false\n    volumes = ["/var/run/docker.sock:/var/run/docker.sock", "/cache"]\n    cpus = "0"\n    memory = "0"' "$CONFIG_FILE"
+
+# Enable adaptive request concurrency feature flag
+echo "" >> "$CONFIG_FILE"
+echo "[session_server]" >> "$CONFIG_FILE"
+echo "  session_timeout = 1800" >> "$CONFIG_FILE"
 
 echo "Runner registered successfully!"
 echo "Config file contents:"

@@ -10,6 +10,7 @@ services:
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
       - RUNNER_TAG_LIST=${RUNNER_1_TAGS:-runner-1,docker}
       - RUNNER_NAME=${RUNNER_1_NAME:-GitLab Runner 1}
+      - RUNNER_LIMIT=${RUNNER_1_LIMIT:-10}
     volumes:
       - ./register-runner.sh:/register.sh:ro
       - runner-1-config:/etc/gitlab-runner
@@ -23,9 +24,14 @@ services:
     depends_on:
       gitlab-runner-1-init:
         condition: service_completed_successfully
+    environment:
+      - FF_USE_ADAPTIVE_REQUEST_CONCURRENCY=true
+      - FF_NETWORK_PER_BUILD=true
+      - DOCKER_DRIVER=overlay2
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - runner-1-config:/etc/gitlab-runner
+      - runner-1-cache:/cache
     restart: unless-stopped
     networks:
       - gitlab-runner-network
@@ -39,6 +45,7 @@ services:
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
       - RUNNER_TAG_LIST=${RUNNER_2_TAGS:-runner-2,docker}
       - RUNNER_NAME=${RUNNER_2_NAME:-GitLab Runner 2}
+      - RUNNER_LIMIT=${RUNNER_2_LIMIT:-10}
     volumes:
       - ./register-runner.sh:/register.sh:ro
       - runner-2-config:/etc/gitlab-runner
@@ -52,9 +59,14 @@ services:
     depends_on:
       gitlab-runner-2-init:
         condition: service_completed_successfully
+    environment:
+      - FF_USE_ADAPTIVE_REQUEST_CONCURRENCY=true
+      - FF_NETWORK_PER_BUILD=true
+      - DOCKER_DRIVER=overlay2
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - runner-2-config:/etc/gitlab-runner
+      - runner-2-cache:/cache
     restart: unless-stopped
     networks:
       - gitlab-runner-network
@@ -68,6 +80,7 @@ services:
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
       - RUNNER_TAG_LIST=${RUNNER_3_TAGS:-runner-3,docker}
       - RUNNER_NAME=${RUNNER_3_NAME:-GitLab Runner 3}
+      - RUNNER_LIMIT=${RUNNER_3_LIMIT:-10}
     volumes:
       - ./register-runner.sh:/register.sh:ro
       - runner-3-config:/etc/gitlab-runner
@@ -81,9 +94,14 @@ services:
     depends_on:
       gitlab-runner-3-init:
         condition: service_completed_successfully
+    environment:
+      - FF_USE_ADAPTIVE_REQUEST_CONCURRENCY=true
+      - FF_NETWORK_PER_BUILD=true
+      - DOCKER_DRIVER=overlay2
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - runner-3-config:/etc/gitlab-runner
+      - runner-3-cache:/cache
     restart: unless-stopped
     networks:
       - gitlab-runner-network
@@ -92,6 +110,9 @@ volumes:
   runner-1-config:
   runner-2-config:
   runner-3-config:
+  runner-1-cache:
+  runner-2-cache:
+  runner-3-cache:
 
 networks:
   gitlab-runner-network:
