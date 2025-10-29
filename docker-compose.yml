@@ -1,20 +1,29 @@
-version: '3.8'
-
 services:
-  # Init container to register runner 1
+  # ---------------------------------------------------------------------------
+  # RUNNER 1
+  # ---------------------------------------------------------------------------
   gitlab-runner-1-init:
     image: alpine:latest
     container_name: gitlab-runner-1-init
     environment:
       - CI_SERVER_URL=${CI_SERVER_URL}
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
-      - RUNNER_TAG_LIST=${RUNNER_1_TAGS:-runner-1,docker}
-      - RUNNER_NAME=${RUNNER_1_NAME:-GitLab Runner 1}
-      - RUNNER_LIMIT=${RUNNER_1_LIMIT:-10}
+      - RUNNER_NAME=${RUNNER_1_NAME}
+      - RUNNER_TAGS=${RUNNER_1_TAGS}
+      - RUNNER_LIMIT=${RUNNER_1_LIMIT}
+      - REQUEST_CONCURRENCY=${RUNNER_1_REQUEST_CONCURRENCY:-1}
+      - DOCKER_IMAGE=${RUNNER_1_DOCKER_IMAGE}
+      - DOCKER_PRIVILEGED=${RUNNER_1_DOCKER_PRIVILEGED}
+      - DOCKER_VOLUMES=${RUNNER_1_DOCKER_VOLUMES}
+      - DOCKER_PULL_POLICY=${RUNNER_1_DOCKER_PULL_POLICY}
+      - DOCKER_CPUS=${RUNNER_1_DOCKER_CPUS}
+      - DOCKER_MEMORY=${RUNNER_1_DOCKER_MEMORY}
+      - DOCKER_SHM_SIZE=${RUNNER_1_DOCKER_SHM_SIZE:-0}
     volumes:
-      - ./register-runner.sh:/register.sh:ro
+      # Mount the script with write permissions so we can chmod it
+      - ./register-runner.sh:/register.sh
       - runner-1-config:/etc/gitlab-runner
-    command: ["/bin/sh", "/register.sh"]
+    command: ["sh", "-c", "chmod +x /register.sh && /register.sh"]
     networks:
       - gitlab-runner-network
 
@@ -24,10 +33,6 @@ services:
     depends_on:
       gitlab-runner-1-init:
         condition: service_completed_successfully
-    environment:
-      - FF_USE_ADAPTIVE_REQUEST_CONCURRENCY=true
-      - FF_NETWORK_PER_BUILD=true
-      - DOCKER_DRIVER=overlay2
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - runner-1-config:/etc/gitlab-runner
@@ -36,20 +41,30 @@ services:
     networks:
       - gitlab-runner-network
 
-  # Init container to register runner 2
+  # ---------------------------------------------------------------------------
+  # RUNNER 2
+  # ---------------------------------------------------------------------------
   gitlab-runner-2-init:
     image: alpine:latest
     container_name: gitlab-runner-2-init
     environment:
       - CI_SERVER_URL=${CI_SERVER_URL}
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
-      - RUNNER_TAG_LIST=${RUNNER_2_TAGS:-runner-2,docker}
-      - RUNNER_NAME=${RUNNER_2_NAME:-GitLab Runner 2}
-      - RUNNER_LIMIT=${RUNNER_2_LIMIT:-10}
+      - RUNNER_NAME=${RUNNER_2_NAME}
+      - RUNNER_TAGS=${RUNNER_2_TAGS}
+      - RUNNER_LIMIT=${RUNNER_2_LIMIT}
+      - REQUEST_CONCURRENCY=${RUNNER_2_REQUEST_CONCURRENCY:-1}
+      - DOCKER_IMAGE=${RUNNER_2_DOCKER_IMAGE}
+      - DOCKER_PRIVILEGED=${RUNNER_2_DOCKER_PRIVILEGED}
+      - DOCKER_VOLUMES=${RUNNER_2_DOCKER_VOLUMES}
+      - DOCKER_PULL_POLICY=${RUNNER_2_DOCKER_PULL_POLICY}
+      - DOCKER_CPUS=${RUNNER_2_DOCKER_CPUS}
+      - DOCKER_MEMORY=${RUNNER_2_DOCKER_MEMORY}
+      - DOCKER_SHM_SIZE=${RUNNER_2_DOCKER_SHM_SIZE:-0}
     volumes:
-      - ./register-runner.sh:/register.sh:ro
+      - ./register-runner.sh:/register.sh
       - runner-2-config:/etc/gitlab-runner
-    command: ["/bin/sh", "/register.sh"]
+    command: ["sh", "-c", "chmod +x /register.sh && /register.sh"]
     networks:
       - gitlab-runner-network
 
@@ -59,10 +74,6 @@ services:
     depends_on:
       gitlab-runner-2-init:
         condition: service_completed_successfully
-    environment:
-      - FF_USE_ADAPTIVE_REQUEST_CONCURRENCY=true
-      - FF_NETWORK_PER_BUILD=true
-      - DOCKER_DRIVER=overlay2
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - runner-2-config:/etc/gitlab-runner
@@ -71,20 +82,30 @@ services:
     networks:
       - gitlab-runner-network
 
-  # Init container to register runner 3
+  # ---------------------------------------------------------------------------
+  # RUNNER 3
+  # ---------------------------------------------------------------------------
   gitlab-runner-3-init:
     image: alpine:latest
     container_name: gitlab-runner-3-init
     environment:
       - CI_SERVER_URL=${CI_SERVER_URL}
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
-      - RUNNER_TAG_LIST=${RUNNER_3_TAGS:-runner-3,docker}
-      - RUNNER_NAME=${RUNNER_3_NAME:-GitLab Runner 3}
-      - RUNNER_LIMIT=${RUNNER_3_LIMIT:-10}
+      - RUNNER_NAME=${RUNNER_3_NAME}
+      - RUNNER_TAGS=${RUNNER_3_TAGS}
+      - RUNNER_LIMIT=${RUNNER_3_LIMIT}
+      - REQUEST_CONCURRENCY=${RUNNER_3_REQUEST_CONCURRENCY:-1}
+      - DOCKER_IMAGE=${RUNNER_3_DOCKER_IMAGE}
+      - DOCKER_PRIVILEGED=${RUNNER_3_DOCKER_PRIVILEGED}
+      - DOCKER_VOLUMES=${RUNNER_3_DOCKER_VOLUMES}
+      - DOCKER_PULL_POLICY=${RUNNER_3_DOCKER_PULL_POLICY}
+      - DOCKER_CPUS=${RUNNER_3_DOCKER_CPUS}
+      - DOCKER_MEMORY=${RUNNER_3_DOCKER_MEMORY}
+      - DOCKER_SHM_SIZE=${RUNNER_3_DOCKER_SHM_SIZE:-0}
     volumes:
-      - ./register-runner.sh:/register.sh:ro
+      - ./register-runner.sh:/register.sh
       - runner-3-config:/etc/gitlab-runner
-    command: ["/bin/sh", "/register.sh"]
+    command: ["sh", "-c", "chmod +x /register.sh && /register.sh"]
     networks:
       - gitlab-runner-network
 
@@ -94,10 +115,6 @@ services:
     depends_on:
       gitlab-runner-3-init:
         condition: service_completed_successfully
-    environment:
-      - FF_USE_ADAPTIVE_REQUEST_CONCURRENCY=true
-      - FF_NETWORK_PER_BUILD=true
-      - DOCKER_DRIVER=overlay2
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - runner-3-config:/etc/gitlab-runner

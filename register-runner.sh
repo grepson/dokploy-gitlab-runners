@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# This script registers a GitLab Runner, ensuring that if a runner with the
-# same name already exists, it is unregistered first to apply the new configuration.
-
 set -e
 
 echo "=== GitLab Runner Auto-Registration & Configuration Script ==="
@@ -28,7 +25,6 @@ CONFIG_FILE="/etc/gitlab-runner/config.toml"
 # -----------------------------------------------------------------------------
 # Unregister Existing Runner (if it exists)
 # -----------------------------------------------------------------------------
-# This allows the script to be re-run to update a runner's configuration.
 if [ -f "$CONFIG_FILE" ] && grep -q "name = \"${RUNNER_NAME}\"" "$CONFIG_FILE" 2>/dev/null; then
     echo "--> A runner named '${RUNNER_NAME}' already exists. Unregistering it to apply new settings."
     gitlab-runner unregister --name "${RUNNER_NAME}"
@@ -51,14 +47,12 @@ fi
 echo "--> Registering new GitLab Runner: ${RUNNER_NAME}"
 
 # Build the registration command arguments dynamically.
-# Default values are used for non-essential variables.
 registration_args="--non-interactive \
     --url '${CI_SERVER_URL}' \
     --token '${REGISTRATION_TOKEN}' \
     --name '${RUNNER_NAME}' \
     --executor 'docker' \
     --docker-image '${DOCKER_IMAGE:-alpine:latest}' \
-    --description '${RUNNER_NAME}' \
     --tag-list '${RUNNER_TAGS:-docker}' \
     --run-untagged='false' \
     --locked='false' \
@@ -73,14 +67,12 @@ if [ "${DOCKER_PRIVILEGED}" = "true" ]; then
     registration_args="${registration_args} --docker-privileged"
 fi
 
-# Add Docker volumes by iterating over the comma-separated list
+# Add Docker volumes
 if [ -n "$DOCKER_VOLUMES" ]; then
-    # This loop parses the JSON-like array string: '["/vol1:/vol1", "/vol2:/vol2"]'
-    # It removes brackets, quotes, and splits by comma.
     SAVEIFS=$IFS
     IFS=','
     for vol in $DOCKER_VOLUMES; do
-        clean_vol=$(echo "$vol" | sed 's/[]["]//g' | xargs) # Removes [], ", and trims whitespace
+        clean_vol=$(echo "$vol" | sed 's/[]["]//g' | xargs)
         if [ -n "$clean_vol" ]; then
             registration_args="${registration_args} --docker-volumes '${clean_vol}'"
         fi
@@ -88,7 +80,7 @@ if [ -n "$DOCKER_VOLUMES" ]; then
     IFS=$SAVEIFS
 fi
 
-# Add resource limits only if they are defined
+# Add resource limits if defined
 if [ -n "$DOCKER_CPUS" ]; then
     registration_args="${registration_args} --docker-cpus '${DOCKER_CPUS}'"
 fi
@@ -96,8 +88,7 @@ if [ -n "$DOCKER_MEMORY" ]; then
     registration_args="${registration_args} --docker-memory '${DOCKER_MEMORY}'"
 fi
 
-# Execute the registration command. Using 'eval' is necessary to correctly handle
-# the quoted arguments that were built into the string.
+# Execute the registration command.
 eval "gitlab-runner register ${registration_args}"
 
 # -----------------------------------------------------------------------------
@@ -105,7 +96,6 @@ eval "gitlab-runner register ${registration_args}"
 # -----------------------------------------------------------------------------
 echo "--> Applying post-registration configurations..."
 if [ -f "$CONFIG_FILE" ] && ! grep -q "\[session_server\]" "$CONFIG_FILE"; then
-    # Add advanced config tweaks that are not available in the 'register' command.
     echo "" >> "$CONFIG_FILE"
     echo "[session_server]" >> "$CONFIG_FILE"
     echo "  session_timeout = 1800" >> "$CONFIG_FILE"
