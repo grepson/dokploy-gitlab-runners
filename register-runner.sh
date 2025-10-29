@@ -20,25 +20,27 @@ fi
 echo "  - Runner Name to configure: ${RUNNER_NAME}"
 echo "  - CI Server URL: ${CI_SERVER_URL}"
 
+# -----------------------------------------------------------------------------
+# (MOVED UP) Ensure GitLab Runner is installed before any other action
+# -----------------------------------------------------------------------------
+if ! command -v gitlab-runner > /dev/null; then
+    echo "--> gitlab-runner command not found. Installing..."
+    # Adding -q for quieter download logs
+    wget -q -O /usr/local/bin/gitlab-runner https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-linux-amd64
+    chmod +x /usr/local/bin/gitlab-runner
+    echo "--> gitlab-runner installed successfully."
+fi
+
 CONFIG_FILE="/etc/gitlab-runner/config.toml"
 
 # -----------------------------------------------------------------------------
 # Unregister Existing Runner (if it exists)
 # -----------------------------------------------------------------------------
+# This check can now safely call `gitlab-runner` because we know it's installed.
 if [ -f "$CONFIG_FILE" ] && grep -q "name = \"${RUNNER_NAME}\"" "$CONFIG_FILE" 2>/dev/null; then
     echo "--> A runner named '${RUNNER_NAME}' already exists. Unregistering it to apply new settings."
     gitlab-runner unregister --name "${RUNNER_NAME}"
     echo "--> Successfully unregistered the old runner."
-fi
-
-# -----------------------------------------------------------------------------
-# GitLab Runner Installation (if needed)
-# -----------------------------------------------------------------------------
-if ! command -v gitlab-runner > /dev/null; then
-    echo "--> gitlab-runner command not found. Installing..."
-    wget -q -O /usr/local/bin/gitlab-runner https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-linux-amd64
-    chmod +x /usr/local/bin/gitlab-runner
-    echo "--> gitlab-runner installed successfully."
 fi
 
 # -----------------------------------------------------------------------------
