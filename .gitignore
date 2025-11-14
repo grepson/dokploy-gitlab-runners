@@ -19,3 +19,5 @@ Thumbs.db
 *.log
 
 *.env
+
+runners.json
