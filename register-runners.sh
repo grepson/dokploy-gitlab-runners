@@ -45,11 +45,33 @@ RUNNER_CONFIG_FILE="${RUNNER_CONFIG_FILE:-/etc/gitlab-runner/runners.json}"
 
 # Check if we should use JSON config or environment variables
 USE_JSON_CONFIG=false
+GLOBAL_CONCURRENT=0
+GLOBAL_CHECK_INTERVAL=0
+GLOBAL_LOG_LEVEL="info"
+GLOBAL_LOG_FORMAT="text"
+
 if [ -f "$RUNNER_CONFIG_FILE" ]; then
     # Verify it's valid JSON
     if jq empty "$RUNNER_CONFIG_FILE" 2>/dev/null; then
         echo "--> Loading runner configuration from: ${RUNNER_CONFIG_FILE}"
-        RUNNER_COUNT=$(jq '. | length' "$RUNNER_CONFIG_FILE")
+
+        # Check if there's a global config section
+        if jq -e '.global' "$RUNNER_CONFIG_FILE" > /dev/null 2>&1; then
+            echo "--> Found global configuration section"
+            GLOBAL_CONCURRENT=$(jq -r '.global.concurrent // 0' "$RUNNER_CONFIG_FILE")
+            GLOBAL_CHECK_INTERVAL=$(jq -r '.global.check_interval // 0' "$RUNNER_CONFIG_FILE")
+            GLOBAL_LOG_LEVEL=$(jq -r '.global.log_level // "info"' "$RUNNER_CONFIG_FILE")
+            GLOBAL_LOG_FORMAT=$(jq -r '.global.log_format // "text"' "$RUNNER_CONFIG_FILE")
+
+            echo "  - Global concurrent: ${GLOBAL_CONCURRENT}"
+            echo "  - Global check_interval: ${GLOBAL_CHECK_INTERVAL}"
+            echo "  - Global log_level: ${GLOBAL_LOG_LEVEL}"
+
+            RUNNER_COUNT=$(jq '.runners | length' "$RUNNER_CONFIG_FILE")
+        else
+            RUNNER_COUNT=$(jq '. | length' "$RUNNER_CONFIG_FILE")
+        fi
+
         echo "  - Found ${RUNNER_COUNT} runner(s) in configuration file"
         USE_JSON_CONFIG=true
     else
@@ -63,6 +85,31 @@ else
     RUNNER_COUNT="${RUNNER_COUNT:-1}"
     echo "  - Will create ${RUNNER_COUNT} runner(s)"
 fi
+
+# Calculate total concurrent if not explicitly set
+if [ "$GLOBAL_CONCURRENT" -eq 0 ] && [ "$USE_JSON_CONFIG" = "true" ]; then
+    echo "--> Calculating global concurrent from runner limits..."
+    if jq -e '.global' "$RUNNER_CONFIG_FILE" > /dev/null 2>&1; then
+        GLOBAL_CONCURRENT=$(jq '[.runners[].limit] | add' "$RUNNER_CONFIG_FILE")
+    else
+        GLOBAL_CONCURRENT=$(jq '[.[].limit] | add' "$RUNNER_CONFIG_FILE")
+    fi
+    echo "  - Calculated global concurrent: ${GLOBAL_CONCURRENT}"
+fi
+
+# -----------------------------------------------------------------------------
+# Initialize config.toml with global settings
+# -----------------------------------------------------------------------------
+echo "--> Initializing config.toml with global settings..."
+cat > "$CONFIG_FILE" <<EOF
+concurrent = ${GLOBAL_CONCURRENT}
+check_interval = ${GLOBAL_CHECK_INTERVAL}
+log_level = "${GLOBAL_LOG_LEVEL}"
+log_format = "${GLOBAL_LOG_FORMAT}"
+
+EOF
+
+echo "  - Global concurrent set to: ${GLOBAL_CONCURRENT}"
 
 # -----------------------------------------------------------------------------
 # Function: Register a Single Runner
@@ -82,12 +129,6 @@ register_runner() {
 
     echo ""
     echo "--> Registering Runner #${index}: ${name}"
-
-    # Unregister if exists
-    if [ -f "$CONFIG_FILE" ] && grep -q "name = \"${name}\"" "$CONFIG_FILE" 2>/dev/null; then
-        echo "    Runner '${name}' already exists. Unregistering..."
-        gitlab-runner unregister --name "${name}" || true
-    fi
 
     # Build registration command
     registration_args="--non-interactive \
@@ -139,17 +180,24 @@ register_runner() {
 # Register Runners from JSON Config File
 # -----------------------------------------------------------------------------
 if [ "$USE_JSON_CONFIG" = "true" ]; then
+    # Check if using new format with global section
+    if jq -e '.global' "$RUNNER_CONFIG_FILE" > /dev/null 2>&1; then
+        RUNNERS_ARRAY=".runners"
+    else
+        RUNNERS_ARRAY="."
+    fi
+
     for i in $(seq 0 $((RUNNER_COUNT - 1))); do
-        name=$(jq -r ".[$i].name" "$RUNNER_CONFIG_FILE")
-        tags=$(jq -r ".[$i].tags" "$RUNNER_CONFIG_FILE")
-        limit=$(jq -r ".[$i].limit // 1" "$RUNNER_CONFIG_FILE")
-        docker_image=$(jq -r ".[$i].docker_image // \"alpine:latest\"" "$RUNNER_CONFIG_FILE")
-        docker_privileged=$(jq -r ".[$i].docker_privileged // \"false\"" "$RUNNER_CONFIG_FILE")
-        docker_volumes=$(jq -r ".[$i].docker_volumes // \"\"" "$RUNNER_CONFIG_FILE")
-        docker_pull_policy=$(jq -r ".[$i].docker_pull_policy // \"if-not-present\"" "$RUNNER_CONFIG_FILE")
-        docker_cpus=$(jq -r ".[$i].docker_cpus // \"\"" "$RUNNER_CONFIG_FILE")
-        docker_memory=$(jq -r ".[$i].docker_memory // \"\"" "$RUNNER_CONFIG_FILE")
-        request_concurrency=$(jq -r ".[$i].request_concurrency // 1" "$RUNNER_CONFIG_FILE")
+        name=$(jq -r "${RUNNERS_ARRAY}[$i].name" "$RUNNER_CONFIG_FILE")
+        tags=$(jq -r "${RUNNERS_ARRAY}[$i].tags" "$RUNNER_CONFIG_FILE")
+        limit=$(jq -r "${RUNNERS_ARRAY}[$i].limit // 1" "$RUNNER_CONFIG_FILE")
+        docker_image=$(jq -r "${RUNNERS_ARRAY}[$i].docker_image // \"alpine:latest\"" "$RUNNER_CONFIG_FILE")
+        docker_privileged=$(jq -r "${RUNNERS_ARRAY}[$i].docker_privileged // \"false\"" "$RUNNER_CONFIG_FILE")
+        docker_volumes=$(jq -r "${RUNNERS_ARRAY}[$i].docker_volumes // \"\"" "$RUNNER_CONFIG_FILE")
+        docker_pull_policy=$(jq -r "${RUNNERS_ARRAY}[$i].docker_pull_policy // \"if-not-present\"" "$RUNNER_CONFIG_FILE")
+        docker_cpus=$(jq -r "${RUNNERS_ARRAY}[$i].docker_cpus // \"\"" "$RUNNER_CONFIG_FILE")
+        docker_memory=$(jq -r "${RUNNERS_ARRAY}[$i].docker_memory // \"\"" "$RUNNER_CONFIG_FILE")
+        request_concurrency=$(jq -r "${RUNNERS_ARRAY}[$i].request_concurrency // 1" "$RUNNER_CONFIG_FILE")
 
         register_runner "$((i + 1))" "$name" "$tags" "$limit" "$docker_image" \
             "$docker_privileged" "$docker_volumes" "$docker_pull_policy" \
@@ -212,6 +260,7 @@ if ps -p $RUNNER_PID > /dev/null; then
     # Keep the script running
     echo ""
     echo "🚀 GitLab Runner service is running with ${RUNNER_COUNT} runner(s)..."
+    echo "   Global concurrent limit: ${GLOBAL_CONCURRENT}"
     echo "   PID: ${RUNNER_PID}"
     wait $RUNNER_PID
 else
