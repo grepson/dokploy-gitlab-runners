@@ -67,9 +67,21 @@ if [ -f "$RUNNER_CONFIG_FILE" ]; then
             echo "  - Global check_interval: ${GLOBAL_CHECK_INTERVAL}"
             echo "  - Global log_level: ${GLOBAL_LOG_LEVEL}"
 
-            RUNNER_COUNT=$(jq '.runners | length' "$RUNNER_CONFIG_FILE")
+            # Check if runners is an array
+            if jq -e '.runners | type == "array"' "$RUNNER_CONFIG_FILE" > /dev/null 2>&1; then
+                RUNNER_COUNT=$(jq '.runners | length' "$RUNNER_CONFIG_FILE")
+            else
+                echo "ERROR: 'runners' must be an array in the JSON config" >&2
+                exit 1
+            fi
         else
-            RUNNER_COUNT=$(jq '. | length' "$RUNNER_CONFIG_FILE")
+            # Old format: root array
+            if jq -e 'type == "array"' "$RUNNER_CONFIG_FILE" > /dev/null 2>&1; then
+                RUNNER_COUNT=$(jq '. | length' "$RUNNER_CONFIG_FILE")
+            else
+                echo "ERROR: JSON config must be an array or have a 'runners' array" >&2
+                exit 1
+            fi
         fi
 
         echo "  - Found ${RUNNER_COUNT} runner(s) in configuration file"
@@ -90,9 +102,9 @@ fi
 if [ "$GLOBAL_CONCURRENT" -eq 0 ] && [ "$USE_JSON_CONFIG" = "true" ]; then
     echo "--> Calculating global concurrent from runner limits..."
     if jq -e '.global' "$RUNNER_CONFIG_FILE" > /dev/null 2>&1; then
-        GLOBAL_CONCURRENT=$(jq '[.runners[].limit] | add' "$RUNNER_CONFIG_FILE")
+        GLOBAL_CONCURRENT=$(jq '[.runners[]?.limit // 0] | add' "$RUNNER_CONFIG_FILE")
     else
-        GLOBAL_CONCURRENT=$(jq '[.[].limit] | add' "$RUNNER_CONFIG_FILE")
+        GLOBAL_CONCURRENT=$(jq '[.[]?.limit // 0] | add' "$RUNNER_CONFIG_FILE")
     fi
     echo "  - Calculated global concurrent: ${GLOBAL_CONCURRENT}"
 fi
