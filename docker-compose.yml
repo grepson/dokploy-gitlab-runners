@@ -1,135 +1,52 @@
 services:
-  # ---------------------------------------------------------------------------
-  # RUNNER 1
-  # ---------------------------------------------------------------------------
-  gitlab-runner-1-init:
-    image: alpine:latest
-    container_name: gitlab-runner-1-init
+  gitlab-runners:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gitlab-runners-multi
+    restart: unless-stopped
+
+    # Required for Docker-in-Docker functionality
+    privileged: true
+
+    volumes:
+      # Mount Docker socket for Docker-in-Docker
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Persist runner configuration using named volume
+      - gitlab-runner-config:/etc/gitlab-runner
+
+      # Mount runners.json from current directory
+      # Make sure runners.json exists before starting!
+      - ./runners.json:/etc/gitlab-runner/runners.json:ro
+
+      # Cache directory
+      - gitlab-runner-cache:/cache
+
     environment:
+      # Required variables
       - CI_SERVER_URL=${CI_SERVER_URL}
       - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
-      - RUNNER_NAME=${RUNNER_1_NAME}
-      - RUNNER_TAGS=${RUNNER_1_TAGS}
-      - RUNNER_LIMIT=${RUNNER_1_LIMIT}
-      - REQUEST_CONCURRENCY=${RUNNER_1_REQUEST_CONCURRENCY:-1}
-      - DOCKER_IMAGE=${RUNNER_1_DOCKER_IMAGE}
-      - DOCKER_PRIVILEGED=${RUNNER_1_DOCKER_PRIVILEGED}
-      - DOCKER_VOLUMES=${RUNNER_1_DOCKER_VOLUMES}
-      - DOCKER_PULL_POLICY=${RUNNER_1_DOCKER_PULL_POLICY}
-      - DOCKER_CPUS=${RUNNER_1_DOCKER_CPUS}
-      - DOCKER_MEMORY=${RUNNER_1_DOCKER_MEMORY}
-      - DOCKER_SHM_SIZE=${RUNNER_1_DOCKER_SHM_SIZE:-0}
-    volumes:
-      # Mount the script with write permissions so we can chmod it
-      - ./register-runner.sh:/register.sh
-      - runner-1-config:/etc/gitlab-runner
-    command: ["sh", "-c", "chmod +x /register.sh && /register.sh"]
-    networks:
-      - gitlab-runner-network
 
-  gitlab-runner-1:
-    image: gitlab/gitlab-runner:alpine
-    container_name: gitlab-runner-1
-    depends_on:
-      gitlab-runner-1-init:
-        condition: service_completed_successfully
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - runner-1-config:/etc/gitlab-runner
-      - runner-1-cache:/cache
-    restart: unless-stopped
-    networks:
-      - gitlab-runner-network
+      # Use JSON config file
+      - RUNNER_CONFIG_FILE=/etc/gitlab-runner/runners.json
 
-  # ---------------------------------------------------------------------------
-  # RUNNER 2
-  # ---------------------------------------------------------------------------
-  gitlab-runner-2-init:
-    image: alpine:latest
-    container_name: gitlab-runner-2-init
-    environment:
-      - CI_SERVER_URL=${CI_SERVER_URL}
-      - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
-      - RUNNER_NAME=${RUNNER_2_NAME}
-      - RUNNER_TAGS=${RUNNER_2_TAGS}
-      - RUNNER_LIMIT=${RUNNER_2_LIMIT}
-      - REQUEST_CONCURRENCY=${RUNNER_2_REQUEST_CONCURRENCY:-1}
-      - DOCKER_IMAGE=${RUNNER_2_DOCKER_IMAGE}
-      - DOCKER_PRIVILEGED=${RUNNER_2_DOCKER_PRIVILEGED}
-      - DOCKER_VOLUMES=${RUNNER_2_DOCKER_VOLUMES}
-      - DOCKER_PULL_POLICY=${RUNNER_2_DOCKER_PULL_POLICY}
-      - DOCKER_CPUS=${RUNNER_2_DOCKER_CPUS}
-      - DOCKER_MEMORY=${RUNNER_2_DOCKER_MEMORY}
-      - DOCKER_SHM_SIZE=${RUNNER_2_DOCKER_SHM_SIZE:-0}
-    volumes:
-      - ./register-runner.sh:/register.sh
-      - runner-2-config:/etc/gitlab-runner
-    command: ["sh", "-c", "chmod +x /register.sh && /register.sh"]
-    networks:
-      - gitlab-runner-network
+    # Health check
+    healthcheck:
+      test: ["CMD", "gitlab-runner", "verify"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
-  gitlab-runner-2:
-    image: gitlab/gitlab-runner:alpine
-    container_name: gitlab-runner-2
-    depends_on:
-      gitlab-runner-2-init:
-        condition: service_completed_successfully
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - runner-2-config:/etc/gitlab-runner
-      - runner-2-cache:/cache
-    restart: unless-stopped
-    networks:
-      - gitlab-runner-network
-
-  # ---------------------------------------------------------------------------
-  # RUNNER 3
-  # ---------------------------------------------------------------------------
-  gitlab-runner-3-init:
-    image: alpine:latest
-    container_name: gitlab-runner-3-init
-    environment:
-      - CI_SERVER_URL=${CI_SERVER_URL}
-      - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
-      - RUNNER_NAME=${RUNNER_3_NAME}
-      - RUNNER_TAGS=${RUNNER_3_TAGS}
-      - RUNNER_LIMIT=${RUNNER_3_LIMIT}
-      - REQUEST_CONCURRENCY=${RUNNER_3_REQUEST_CONCURRENCY:-1}
-      - DOCKER_IMAGE=${RUNNER_3_DOCKER_IMAGE}
-      - DOCKER_PRIVILEGED=${RUNNER_3_DOCKER_PRIVILEGED}
-      - DOCKER_VOLUMES=${RUNNER_3_DOCKER_VOLUMES}
-      - DOCKER_PULL_POLICY=${RUNNER_3_DOCKER_PULL_POLICY}
-      - DOCKER_CPUS=${RUNNER_3_DOCKER_CPUS}
-      - DOCKER_MEMORY=${RUNNER_3_DOCKER_MEMORY}
-      - DOCKER_SHM_SIZE=${RUNNER_3_DOCKER_SHM_SIZE:-0}
-    volumes:
-      - ./register-runner.sh:/register.sh
-      - runner-3-config:/etc/gitlab-runner
-    command: ["sh", "-c", "chmod +x /register.sh && /register.sh"]
-    networks:
-      - gitlab-runner-network
-
-  gitlab-runner-3:
-    image: gitlab/gitlab-runner:alpine
-    container_name: gitlab-runner-3
-    depends_on:
-      gitlab-runner-3-init:
-        condition: service_completed_successfully
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - runner-3-config:/etc/gitlab-runner
-      - runner-3-cache:/cache
-    restart: unless-stopped
     networks:
       - gitlab-runner-network
 
 volumes:
-  runner-1-config:
-  runner-2-config:
-  runner-3-config:
-  runner-1-cache:
-  runner-2-cache:
-  runner-3-cache:
+  gitlab-runner-config:
+    driver: local
+  gitlab-runner-cache:
+    driver: local
 
 networks:
   gitlab-runner-network:
