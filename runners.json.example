@@ -1,14 +1,20 @@
-[
-  {
-    "name": "runner-1",
-    "tags": "docker,image_builder,runner-1,docker_privileged",
-    "limit": 1,
-    "docker_image": "docker:24.0.5",
-    "docker_privileged": "true",
-    "docker_volumes": "/var/run/docker.sock:/var/run/docker.sock,/cache",
-    "docker_pull_policy": "if-not-present",
-    "docker_cpus": "2",
-    "docker_memory": "2g",
-    "request_concurrency": 1
-  }
-]
+{
+  "global": {
+    "concurrent": 300,
+    "check_interval": 0,
+    "log_level": "info",
+    "log_format": "text"
+  },
+  "runners": [
+    {
+      "name": "test",
+      "tags": "docker,image_builder,test",
+      "limit": 100,
+      "docker_image": "docker:24.0.5",
+      "docker_privileged": "true",
+      "docker_volumes": "/var/run/docker.sock:/var/run/docker.sock,/cache",
+      "docker_pull_policy": "if-not-present",
+      "request_concurrency": 100
+    }
+  ]
+}
